@@ -63,6 +63,14 @@
             // Update form
             $('#gci-source').val(source);
 
+            // Clear URL and content fields when switching sources
+            $('#gci-url').val('');
+            $('#gci-content').val('');
+            
+            // Clear any existing preview or results
+            $('.gci-preview-area').slideUp();
+            $('.gci-results-area').slideUp();
+
             // Show import form
             $('.gci-import-form').slideDown();
 

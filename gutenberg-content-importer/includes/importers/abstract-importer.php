@@ -79,7 +79,7 @@ abstract class Abstract_Importer implements Importer_Interface {
                 'post_url' => \get_permalink($post_id),
                 'edit_url' => \get_edit_post_link($post_id, 'raw'),
                 'title' => isset($parsed_content['title']) ? $parsed_content['title'] : '',
-                'source' => $this->get_slug(),
+                'source' => $this->get_name(),
                 'url' => $url_or_content,
             ];
 
@@ -87,7 +87,7 @@ abstract class Abstract_Importer implements Importer_Interface {
             return [
                 'success' => false,
                 'error' => $e->getMessage(),
-                'source' => $this->get_slug(),
+                'source' => $this->get_name(),
             ];
         }
     }
