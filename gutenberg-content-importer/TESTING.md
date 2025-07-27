@@ -7,7 +7,6 @@
 **Test URLs**: 
 - `https://medium.com/@username/any-article-url`
 - `https://medium.com/write-a-catalyst/you-are-fired-now-80458d77205a`
-- `https://pub.towardsai.net/why-its-super-hard-to-be-an-ml-researcher-or-developer-67fa62fc1971`
 
 **Expected Result**:
 - Auto-detects Medium as source
