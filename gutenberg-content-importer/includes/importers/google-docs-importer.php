@@ -462,7 +462,7 @@ class Google_Docs_Importer extends Abstract_Importer {
                 // Check if it's a list item
                 if (isset($paragraph['bullet'])) {
                     $parsed_result = $this->parse_paragraph_elements($paragraph['elements'], $document);
-                    $list_item = $parsed_result['html'];
+                    $list_item = $this->clean_list_item_content($parsed_result['html']);
                     $is_ordered = isset($paragraph['bullet']['listId']);
                     
                     // Handle list grouping
@@ -755,6 +755,25 @@ class Google_Docs_Importer extends Abstract_Importer {
         }
         
         return null;
+    }
+    
+    /**
+     * Clean list item content by removing unwanted characters
+     *
+     * @param string $content List item content
+     * @return string Cleaned content
+     */
+    protected function clean_list_item_content($content) {
+        // Remove unwanted characters that Google Docs might add
+        $content = preg_replace('/[\x0B\x0C\x0D\x0E\x0F\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1A\x1B\x1C\x1D\x1E\x1F\x7F]/', '', $content);
+        
+        // Remove trailing whitespace and line breaks
+        $content = rtrim($content, " \t\n\r\0\x0B");
+        
+        // Remove any remaining weird symbols
+        $content = preg_replace('/[\x{200B}-\x{200D}\x{FEFF}]/u', '', $content);
+        
+        return $content;
     }
     
     /**
