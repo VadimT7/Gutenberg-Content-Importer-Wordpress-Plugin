@@ -226,11 +226,10 @@ class Google_Docs_Importer extends Abstract_Importer {
             $content_data = $this->fetch_content($url_or_content);
             $parsed = $this->parse_content($content_data);
             
-            // Generate preview
-            $preview_text = '';
+            // Calculate statistics from parsed sections
             $stats = [
                 'paragraphs' => 0,
-                'images' => count($parsed['images']),
+                'images' => 0,
                 'embeds' => 0,
                 'headings' => 0,
                 'lists' => 0,
@@ -251,16 +250,63 @@ class Google_Docs_Importer extends Abstract_Importer {
                     case 'table':
                         $stats['tables']++;
                         break;
+                    case 'image':
+                        $stats['images']++;
+                        break;
                 }
             }
             
-            // Generate preview text (first 500 chars)
+            // Don't double-count images - they're already counted in sections above
+            // The $parsed['images'] array is for tracking URLs, not for counting
+            
+            // Generate preview text and HTML content
+            $preview_text = '';
+            $preview_html = '';
+            $char_count = 0;
+            $max_chars = 500;
+            
             foreach ($parsed['sections'] as $section) {
-                if ($section['type'] === 'paragraph') {
-                    $preview_text .= strip_tags($section['content']) . ' ';
-                    if (strlen($preview_text) > 500) {
+                if ($char_count >= $max_chars) {
+                    break;
+                }
+                
+                switch ($section['type']) {
+                    case 'paragraph':
+                        $text = strip_tags($section['content']);
+                        $preview_text .= $text . ' ';
+                        $preview_html .= '<p>' . $section['content'] . '</p>';
+                        $char_count += strlen($text);
                         break;
-                    }
+                    case 'heading':
+                        $text = strip_tags($section['content']);
+                        $preview_html .= '<h' . $section['level'] . '>' . $section['content'] . '</h' . $section['level'] . '>';
+                        $char_count += strlen($text);
+                        break;
+                    case 'image':
+                        $preview_html .= '<img src="' . esc_url($section['url']) . '" alt="' . esc_attr($section['alt'] ?? '') . '" style="max-width: 100%; height: auto;" />';
+                        break;
+                    case 'list':
+                        $list_tag = $section['ordered'] ? 'ol' : 'ul';
+                        $preview_html .= '<' . $list_tag . '>';
+                        foreach ($section['items'] as $item) {
+                            $preview_html .= '<li>' . $item . '</li>';
+                        }
+                        $preview_html .= '</' . $list_tag . '>';
+                        break;
+                    case 'table':
+                        $preview_html .= '<table style="border-collapse: collapse; width: 100%;">';
+                        foreach ($section['rows'] as $row) {
+                            $preview_html .= '<tr>';
+                            foreach ($row as $cell) {
+                                $preview_html .= '<td style="border: 1px solid #ddd; padding: 8px;">' . $cell . '</td>';
+                            }
+                            $preview_html .= '</tr>';
+                        }
+                        $preview_html .= '</table>';
+                        break;
+                    case 'footnote':
+                        $preview_html .= '<div style="font-size: 0.9em; color: #666; border-left: 3px solid #ddd; padding-left: 10px; margin: 10px 0;">' . $section['content'] . '</div>';
+                        break;
                 }
             }
             
@@ -268,7 +314,8 @@ class Google_Docs_Importer extends Abstract_Importer {
                 'success' => true,
                 'title' => $parsed['title'],
                 'excerpt' => $parsed['excerpt'],
-                'content_preview' => trim(substr($preview_text, 0, 500)) . '...',
+                'content_preview' => trim(substr($preview_text, 0, $max_chars)) . '...',
+                'preview_html' => $preview_html,
                 'stats' => $stats,
             ];
             
@@ -332,6 +379,15 @@ class Google_Docs_Importer extends Abstract_Importer {
         
         $document = json_decode(\wp_remote_retrieve_body($response), true);
         
+        // Debug logging for document structure
+        error_log('GCI Google Docs - Document keys: ' . implode(', ', array_keys($document)));
+        if (isset($document['inlineObjects'])) {
+            error_log('GCI Google Docs - Inline objects count: ' . count($document['inlineObjects']));
+        }
+        if (isset($document['objects'])) {
+            error_log('GCI Google Docs - Objects count: ' . count($document['objects']));
+        }
+        
         return [
             'type' => 'google-docs',
             'document_id' => $document_id,
@@ -368,6 +424,16 @@ class Google_Docs_Importer extends Abstract_Importer {
         // Add collected images
         $parsed['images'] = array_unique($this->current_images);
         
+        // Debug logging
+        error_log('GCI Google Docs - Parsed sections count: ' . count($parsed['sections']));
+        error_log('GCI Google Docs - Images found: ' . count($parsed['images']));
+        error_log('GCI Google Docs - Document title: ' . $parsed['title']);
+        
+        // Log image URLs for debugging
+        foreach ($parsed['images'] as $index => $image_url) {
+            error_log('GCI Google Docs - Image ' . ($index + 1) . ': ' . $image_url);
+        }
+        
         return $parsed;
     }
     
@@ -382,13 +448,21 @@ class Google_Docs_Importer extends Abstract_Importer {
         $current_list = null;
         $current_list_type = null;
         
+        // Debug logging
+        error_log('GCI Google Docs - Processing ' . count($elements) . ' structural elements');
+        
         foreach ($elements as $element) {
+            // Debug logging for element types
+            $element_types = array_keys($element);
+            error_log('GCI Google Docs - Element types: ' . implode(', ', $element_types));
+            
             if (isset($element['paragraph'])) {
                 $paragraph = $element['paragraph'];
                 
                 // Check if it's a list item
                 if (isset($paragraph['bullet'])) {
-                    $list_item = $this->parse_paragraph_elements($paragraph['elements'], $document);
+                    $parsed_result = $this->parse_paragraph_elements($paragraph['elements'], $document);
+                    $list_item = $parsed_result['html'];
                     $is_ordered = isset($paragraph['bullet']['listId']);
                     
                     // Handle list grouping
@@ -406,6 +480,13 @@ class Google_Docs_Importer extends Abstract_Importer {
                     } else {
                         $current_list['items'][] = $list_item;
                     }
+                    
+                    // Add any images found in the list item
+                    if (!empty($parsed_result['images'])) {
+                        foreach ($parsed_result['images'] as $image) {
+                            $parsed['sections'][] = $image;
+                        }
+                    }
                 } else {
                     // Save any pending list
                     if ($current_list !== null) {
@@ -416,9 +497,12 @@ class Google_Docs_Importer extends Abstract_Importer {
                     
                     // Parse as regular paragraph or heading
                     $style = $paragraph['paragraphStyle']['namedStyleType'] ?? 'NORMAL_TEXT';
-                    $content = $this->parse_paragraph_elements($paragraph['elements'], $document);
+                    $parsed_result = $this->parse_paragraph_elements($paragraph['elements'], $document);
+                    $content = $parsed_result['html'];
                     
-                    if (empty(trim(strip_tags($content)))) {
+                    // Only skip if content is truly empty (no text, no images)
+                    $stripped_content = trim(strip_tags($content));
+                    if (empty($stripped_content) && empty($parsed_result['images'])) {
                         continue;
                     }
                     
@@ -447,6 +531,13 @@ class Google_Docs_Importer extends Abstract_Importer {
                             'content' => $content,
                         ];
                     }
+                    
+                    // Add any images found in the paragraph
+                    if (!empty($parsed_result['images'])) {
+                        foreach ($parsed_result['images'] as $image) {
+                            $parsed['sections'][] = $image;
+                        }
+                    }
                 }
             } elseif (isset($element['table'])) {
                 // Save any pending list
@@ -460,6 +551,25 @@ class Google_Docs_Importer extends Abstract_Importer {
                 $table_section = $this->parse_table($element['table'], $document);
                 if ($table_section) {
                     $parsed['sections'][] = $table_section;
+                }
+            } elseif (isset($element['positionedObject'])) {
+                // Save any pending list
+                if ($current_list !== null) {
+                    $parsed['sections'][] = $current_list;
+                    $current_list = null;
+                    $current_list_type = null;
+                }
+                
+                // Parse positioned objects (floating images, etc.)
+                $positioned_section = $this->parse_positioned_object($element['positionedObject'], $document);
+                if ($positioned_section) {
+                    $parsed['sections'][] = $positioned_section;
+                }
+            } elseif (isset($element['footnoteReference'])) {
+                // Handle footnote references
+                $footnote_section = $this->parse_footnote_reference($element['footnoteReference'], $document);
+                if ($footnote_section) {
+                    $parsed['sections'][] = $footnote_section;
                 }
             } elseif (isset($element['sectionBreak'])) {
                 // Save any pending list
@@ -491,6 +601,7 @@ class Google_Docs_Importer extends Abstract_Importer {
      */
     protected function parse_paragraph_elements($elements, $document) {
         $html = '';
+        $images = [];
         
         foreach ($elements as $element) {
             if (isset($element['textRun'])) {
@@ -512,9 +623,9 @@ class Google_Docs_Importer extends Abstract_Importer {
                 }
                 if (isset($style['link'])) {
                     $url = $style['link']['url'] ?? '';
-                                            if (!empty($url)) {
-                            $text = '<a href="' . \esc_url($url) . '">' . $text . '</a>';
-                        }
+                    if (!empty($url)) {
+                        $text = '<a href="' . \esc_url($url) . '">' . $text . '</a>';
+                    }
                 }
                 
                 // Handle baseline offset (superscript/subscript)
@@ -528,7 +639,7 @@ class Google_Docs_Importer extends Abstract_Importer {
                 
                 $html .= $text;
             } elseif (isset($element['inlineObjectElement'])) {
-                // Handle inline images
+                // Handle inline images - extract them separately
                 $object_id = $element['inlineObjectElement']['inlineObjectId'];
                 if (isset($document['inlineObjects'][$object_id])) {
                     $inline_object = $document['inlineObjects'][$object_id];
@@ -536,9 +647,17 @@ class Google_Docs_Importer extends Abstract_Importer {
                         $image_props = $inline_object['inlineObjectProperties']['embeddedObject']['imageProperties'];
                         $content_uri = $image_props['contentUri'] ?? '';
                         if (!empty($content_uri)) {
-                            $html .= '<img src="' . \esc_url($content_uri) . '" alt="" />';
+                            $processed_url = $this->process_image_url($content_uri);
+                            
                             // Track the image URL for downloading
-                            $this->current_images[] = $content_uri;
+                            $this->current_images[] = $processed_url;
+                            
+                            // Add image to images array for separate processing
+                            $images[] = [
+                                'type' => 'image',
+                                'url' => $processed_url,
+                                'alt' => '',
+                            ];
                         }
                     }
                 }
@@ -547,7 +666,10 @@ class Google_Docs_Importer extends Abstract_Importer {
             }
         }
         
-        return $html;
+        return [
+            'html' => $html,
+            'images' => $images,
+        ];
     }
     
     /**
@@ -571,10 +693,11 @@ class Google_Docs_Importer extends Abstract_Importer {
                     if (isset($tableCell['content'])) {
                         foreach ($tableCell['content'] as $element) {
                             if (isset($element['paragraph'])) {
-                                $cell_content .= $this->parse_paragraph_elements(
+                                $parsed_result = $this->parse_paragraph_elements(
                                     $element['paragraph']['elements'],
                                     $document
                                 );
+                                $cell_content .= $parsed_result['html'];
                             }
                         }
                     }
@@ -594,5 +717,113 @@ class Google_Docs_Importer extends Abstract_Importer {
             'type' => 'table',
             'rows' => $rows,
         ];
+    }
+    
+    /**
+     * Parse positioned object (floating images, etc.)
+     *
+     * @param array $positioned_object Positioned object data
+     * @param array $document Full document data
+     * @return array|null Positioned object section
+     */
+    protected function parse_positioned_object($positioned_object, $document) {
+        if (!isset($positioned_object['objectId'])) {
+            return null;
+        }
+        
+        $object_id = $positioned_object['objectId'];
+        
+        // Check if it's an image
+        if (isset($document['objects'][$object_id])) {
+            $object = $document['objects'][$object_id];
+            if (isset($object['imageProperties'])) {
+                $image_props = $object['imageProperties'];
+                $content_uri = $image_props['contentUri'] ?? '';
+                if (!empty($content_uri)) {
+                    $processed_url = $this->process_image_url($content_uri);
+                    
+                    // Track the image URL for downloading
+                    $this->current_images[] = $processed_url;
+                    
+                    return [
+                        'type' => 'image',
+                        'url' => $processed_url,
+                        'alt' => '',
+                    ];
+                }
+            }
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Process Google Docs image URL
+     *
+     * @param string $content_uri Original content URI
+     * @return string Processed image URL
+     */
+    protected function process_image_url($content_uri) {
+        // Debug logging
+        error_log('GCI Google Docs - Processing image URL: ' . $content_uri);
+        
+        // Google Docs images often have special URLs that need processing
+        // The contentUri is usually a direct link to the image
+        if (strpos($content_uri, 'https://') === 0) {
+            error_log('GCI Google Docs - Image URL is already absolute: ' . $content_uri);
+            return $content_uri;
+        }
+        
+        // If it's a relative URL, construct the full URL
+        if (strpos($content_uri, '/') === 0) {
+            $full_url = 'https://docs.google.com' . $content_uri;
+            error_log('GCI Google Docs - Constructed full URL: ' . $full_url);
+            return $full_url;
+        }
+        
+        error_log('GCI Google Docs - Returning original URL: ' . $content_uri);
+        return $content_uri;
+    }
+    
+    /**
+     * Parse footnote reference
+     *
+     * @param array $footnote_ref Footnote reference data
+     * @param array $document Full document data
+     * @return array|null Footnote section
+     */
+    protected function parse_footnote_reference($footnote_ref, $document) {
+        if (!isset($footnote_ref['footnoteId'])) {
+            return null;
+        }
+        
+        $footnote_id = $footnote_ref['footnoteId'];
+        
+        // Check if footnote content exists
+        if (isset($document['footnotes'][$footnote_id])) {
+            $footnote = $document['footnotes'][$footnote_id];
+            $content = '';
+            
+            if (isset($footnote['content'])) {
+                foreach ($footnote['content'] as $element) {
+                    if (isset($element['paragraph'])) {
+                        $parsed_result = $this->parse_paragraph_elements(
+                            $element['paragraph']['elements'],
+                            $document
+                        );
+                        $content .= $parsed_result['html'];
+                    }
+                }
+            }
+            
+            if (!empty(trim($content))) {
+                return [
+                    'type' => 'footnote',
+                    'content' => $content,
+                ];
+            }
+        }
+        
+        return null;
     }
 } 

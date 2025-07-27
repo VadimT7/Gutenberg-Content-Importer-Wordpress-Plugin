@@ -316,6 +316,7 @@ class Medium_Importer extends Abstract_Importer {
         $in_list = false;
         $list_items = [];
         $list_ordered = false;
+        $title_skipped = false;
 
         foreach ($lines as $line) {
             // Handle code blocks
@@ -358,10 +359,18 @@ class Medium_Importer extends Abstract_Importer {
                 $in_list = false;
 
                 $level = strlen($matches[1]);
+                $heading_text = trim($matches[2]);
+                
+                // Skip the first H1 heading as it's usually the title
+                if ($level === 1 && !$title_skipped) {
+                    $title_skipped = true;
+                    continue;
+                }
+                
                 $sections[] = [
                     'type' => 'heading',
                     'level' => $level,
-                    'content' => $this->process_markdown_inline(trim($matches[2])),
+                    'content' => $this->process_markdown_inline($heading_text),
                 ];
                 continue;
             }
@@ -616,7 +625,6 @@ class Medium_Importer extends Abstract_Importer {
             'date' => true,
             'categories' => false,
             'tags' => true,
-            'featured_image' => true,
             'images' => true,
             'formatting' => true,
             'embeds' => true,

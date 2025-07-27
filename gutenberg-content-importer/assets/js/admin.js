@@ -172,7 +172,6 @@
             // Collect options
             const options = {
                 download_images: formData.get('download_images') === '1',
-                create_featured_image: formData.get('create_featured_image') === '1',
                 preserve_formatting: formData.get('preserve_formatting') === '1',
                 post_status: formData.get('post_status'),
                 post_type: formData.get('post_type')
@@ -241,7 +240,12 @@
                 html += '</div>';
             }
 
-            html += '<div class="gci-preview-content">' + data.content_preview + '</div>';
+            // Use HTML preview if available (for Google Docs), otherwise use text preview
+            if (data.preview_html) {
+                html += '<div class="gci-preview-content">' + data.preview_html + '</div>';
+            } else {
+                html += '<div class="gci-preview-content">' + data.content_preview + '</div>';
+            }
 
             $preview.html(html);
             $('.gci-preview-area').slideDown();

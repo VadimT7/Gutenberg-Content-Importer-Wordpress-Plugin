@@ -69,7 +69,7 @@ class Activator {
                 'preserve_formatting' => true,
                 'download_images' => true,
                 'optimize_images' => true,
-                'create_featured_image' => true,
+
                 'preserve_metadata' => true,
                 'notion_api_key' => '',
                 'google_client_id' => '',

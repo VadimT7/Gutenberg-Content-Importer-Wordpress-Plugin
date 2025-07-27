@@ -71,24 +71,7 @@ abstract class Abstract_Importer implements Importer_Interface {
                 $this->process_images($post_id, $parsed_content['images']);
             }
 
-            // Set featured image
-            if (isset($options['create_featured_image']) && $options['create_featured_image']) {
-                // If no explicit featured image but we have images, use the first one
-                $featured_image_url = '';
-                if (!empty($parsed_content['featured_image'])) {
-                    $featured_image_url = $parsed_content['featured_image'];
-                } elseif (!empty($parsed_content['images']) && is_array($parsed_content['images'])) {
-                    $featured_image_url = $parsed_content['images'][0];
-                }
-                
-                if (!empty($featured_image_url)) {
-                    try {
-                        $this->set_featured_image($post_id, $featured_image_url);
-                    } catch (\Exception $e) {
-                        error_log('GCI Error setting featured image: ' . $e->getMessage());
-                    }
-                }
-            }
+
 
             return [
                 'success' => true,
@@ -337,19 +320,7 @@ abstract class Abstract_Importer implements Importer_Interface {
         }
     }
 
-    /**
-     * Set featured image for post
-     *
-     * @param int $post_id Post ID
-     * @param string $image_url Featured image URL
-     */
-    protected function set_featured_image($post_id, $image_url) {
-        $attachment_id = $this->image_handler->import_image($image_url, $post_id);
-        
-        if ($attachment_id) {
-            \set_post_thumbnail($post_id, $attachment_id);
-        }
-    }
+
 
     /**
      * Process terms (categories/tags)
@@ -404,7 +375,6 @@ abstract class Abstract_Importer implements Importer_Interface {
             'content' => true,
             'excerpt' => true,
             'images' => true,
-            'featured_image' => true,
             'categories' => true,
             'tags' => true,
             'metadata' => true,

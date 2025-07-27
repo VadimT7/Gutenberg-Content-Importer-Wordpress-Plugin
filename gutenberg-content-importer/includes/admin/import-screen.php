@@ -81,10 +81,7 @@ class Import_Screen {
                                 <?php _e('Download and import images', 'gutenberg-content-importer'); ?>
                             </label>
                             
-                            <label>
-                                <input type="checkbox" name="create_featured_image" value="1" checked>
-                                <?php _e('Set first image as featured image', 'gutenberg-content-importer'); ?>
-                            </label>
+
                             
                             <label>
                                 <input type="checkbox" name="preserve_formatting" value="1" checked>

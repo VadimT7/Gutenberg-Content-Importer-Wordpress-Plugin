@@ -56,6 +56,9 @@ class Block_Converter {
             case 'file':
                 return $this->create_file_block($section);
             
+            case 'footnote':
+                return $this->create_footnote_block($section);
+            
             default:
                 // Fallback to paragraph for unknown types
                 return $this->create_paragraph_block([
@@ -429,6 +432,51 @@ class Block_Converter {
             'blockName' => 'core/file',
             'attrs' => [
                 'href' => $url,
+            ],
+            'innerBlocks' => [],
+            'innerHTML' => $html,
+            'innerContent' => [$html],
+        ];
+    }
+    
+    /**
+     * Create footnote block
+     *
+     * @param array $section Section data
+     * @return array Block array
+     */
+    protected function create_footnote_block($section) {
+        $content = $section['content'] ?? '';
+        
+        // Process inline formatting
+        $content = $this->process_inline_formatting($content);
+
+        $html = '<div class="wp-block-group" style="font-size: 0.9em; color: #666; border-left: 3px solid #ddd; padding-left: 10px; margin: 10px 0;">';
+        $html .= $content;
+        $html .= '</div>';
+
+        return [
+            'blockName' => 'core/group',
+            'attrs' => [
+                'style' => [
+                    'spacing' => [
+                        'padding' => [
+                            'left' => '10px',
+                            'top' => '10px',
+                            'bottom' => '10px',
+                        ],
+                    ],
+                    'border' => [
+                        'left' => [
+                            'color' => '#ddd',
+                            'width' => '3px',
+                        ],
+                    ],
+                    'typography' => [
+                        'fontSize' => '0.9em',
+                        'color' => '#666',
+                    ],
+                ],
             ],
             'innerBlocks' => [],
             'innerHTML' => $html,

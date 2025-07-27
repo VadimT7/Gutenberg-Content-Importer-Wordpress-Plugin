@@ -58,10 +58,7 @@ class Settings_Screen {
                                     <?php _e('Optimize images on import', 'gutenberg-content-importer'); ?>
                                 </label>
                                 <br>
-                                <label>
-                                    <input type="checkbox" name="create_featured_image" value="1" <?php checked($settings['create_featured_image'] ?? true); ?>>
-                                    <?php _e('Set first image as featured image', 'gutenberg-content-importer'); ?>
-                                </label>
+
                             </td>
                         </tr>
                     </table>
@@ -118,7 +115,7 @@ class Settings_Screen {
             'default_post_type' => 'post',
             'download_images' => !empty($_POST['download_images']),
             'optimize_images' => !empty($_POST['optimize_images']),
-            'create_featured_image' => !empty($_POST['create_featured_image']),
+
             'preserve_formatting' => true,
             'medium_api_key' => sanitize_text_field($_POST['medium_api_key'] ?? ''),
             'notion_api_key' => sanitize_text_field($_POST['notion_api_key'] ?? ''),
