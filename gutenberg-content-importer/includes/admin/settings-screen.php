@@ -93,17 +93,7 @@ class Settings_Screen {
                             </td>
                         </tr>
                         
-                        <tr>
-                            <th scope="row"><?php _e('Google OAuth', 'gutenberg-content-importer'); ?></th>
-                            <td>
-                                <input type="text" name="google_client_id" value="<?php echo esc_attr($settings['google_client_id'] ?? ''); ?>" class="regular-text" placeholder="Client ID">
-                                <br><br>
-                                <input type="password" name="google_client_secret" value="<?php echo esc_attr($settings['google_client_secret'] ?? ''); ?>" class="regular-text" placeholder="Client Secret">
-                                <p class="description">
-                                    <?php _e('Required for importing from Google Docs. Create OAuth credentials in Google Cloud Console.', 'gutenberg-content-importer'); ?>
-                                </p>
-                            </td>
-                        </tr>
+
                     </table>
                 </div>
                 
@@ -132,8 +122,6 @@ class Settings_Screen {
             'preserve_formatting' => true,
             'medium_api_key' => sanitize_text_field($_POST['medium_api_key'] ?? ''),
             'notion_api_key' => sanitize_text_field($_POST['notion_api_key'] ?? ''),
-            'google_client_id' => sanitize_text_field($_POST['google_client_id'] ?? ''),
-            'google_client_secret' => sanitize_text_field($_POST['google_client_secret'] ?? ''),
         ];
 
         update_option('gci_settings', $settings);

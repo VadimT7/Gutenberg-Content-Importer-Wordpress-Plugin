@@ -334,4 +334,48 @@
     to {
         opacity: 1;
     }
+}
+
+/* Google Auth Status */
+.gci-auth-status {
+    margin-top: 10px;
+    font-size: 12px;
+    text-align: center;
+}
+
+.gci-auth-connected {
+    color: #46b450;
+}
+
+.gci-auth-connected .dashicons {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    vertical-align: middle;
+}
+
+.gci-auth-disconnected {
+    margin-top: 10px;
+}
+
+.gci-auth-not-configured {
+    color: #d63638;
+}
+
+.gci-auth-not-configured .dashicons {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    vertical-align: middle;
+}
+
+.gci-disconnect-link {
+    font-size: 11px;
+    color: #a00;
+    text-decoration: none;
+}
+
+.gci-disconnect-link:hover {
+    color: #d63638;
+    text-decoration: underline;
 } 

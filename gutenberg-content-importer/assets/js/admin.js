@@ -26,6 +26,12 @@
 
             // Toggle between URL and paste content
             $('input[name="import_method"]').on('change', this.toggleImportMethod);
+            
+            // Handle Google connect button separately
+            $(document).on('click', '.gci-google-connect', function(e) {
+                e.stopPropagation();
+                // The onclick handler will take care of navigation
+            });
         },
 
         initSourceSelection: function() {
@@ -37,6 +43,18 @@
             e.preventDefault();
             const $item = $(this);
             const source = $item.data('source');
+            
+            // Don't proceed if clicking on the Google connect button
+            if ($(e.target).hasClass('gci-google-connect') || $(e.target).parent().hasClass('gci-google-connect')) {
+                return;
+            }
+            
+            // Check if Google Docs and not authenticated
+            if (source === 'google-docs' && $item.find('.gci-auth-disconnected').length > 0) {
+                // Don't show the form, let user authenticate first
+                alert('Please connect your Google account first by clicking the "Connect Google" button.');
+                return;
+            }
 
             // Update UI
             $('.gci-source-item').removeClass('selected');

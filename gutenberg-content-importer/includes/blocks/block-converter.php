@@ -103,14 +103,17 @@ class Block_Converter {
         // Ensure level is between 1-6
         $level = max(1, min(6, $level));
 
+        // Process inline formatting
+        $content = $this->process_inline_formatting($content);
+
         return [
             'blockName' => 'core/heading',
             'attrs' => [
                 'level' => $level,
             ],
             'innerBlocks' => [],
-            'innerHTML' => '<h' . $level . '>' . esc_html($content) . '</h' . $level . '>',
-            'innerContent' => ['<h' . $level . '>' . esc_html($content) . '</h' . $level . '>'],
+            'innerHTML' => '<h' . $level . '>' . $content . '</h' . $level . '>',
+            'innerContent' => ['<h' . $level . '>' . $content . '</h' . $level . '>'],
         ];
     }
 
@@ -318,7 +321,7 @@ class Block_Converter {
         if (!empty($headers)) {
             $html .= '<thead><tr>';
             foreach ($headers as $header) {
-                $html .= '<th>' . esc_html($header) . '</th>';
+                $html .= '<th>' . $this->process_inline_formatting($header) . '</th>';
             }
             $html .= '</tr></thead>';
         }
@@ -329,7 +332,7 @@ class Block_Converter {
             foreach ($rows as $row) {
                 $html .= '<tr>';
                 foreach ($row as $cell) {
-                    $html .= '<td>' . esc_html($cell) . '</td>';
+                    $html .= '<td>' . $this->process_inline_formatting($cell) . '</td>';
                 }
                 $html .= '</tr>';
             }
@@ -458,7 +461,7 @@ class Block_Converter {
 
         // If it has allowed HTML, sanitize but keep formatting
         if ($has_allowed_html) {
-            return wp_kses($content, [
+            $processed = \wp_kses($content, [
                 'strong' => [],
                 'em' => [],
                 'a' => ['href' => [], 'title' => [], 'target' => [], 'rel' => []],
@@ -469,9 +472,15 @@ class Block_Converter {
                 's' => [],
                 'br' => [],
             ]);
+            
+            // Debug logging
+            error_log('GCI Block Converter - Original content: ' . $content);
+            error_log('GCI Block Converter - Processed content: ' . $processed);
+            
+            return $processed;
         }
 
         // Otherwise, escape HTML
-        return esc_html($content);
+        return \esc_html($content);
     }
 } 

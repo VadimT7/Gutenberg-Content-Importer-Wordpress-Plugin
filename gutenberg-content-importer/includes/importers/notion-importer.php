@@ -126,20 +126,81 @@ class Notion_Importer extends Abstract_Importer {
             ],
             'timeout' => 30,
         ]);
-
+        
         if (is_wp_error($blocks_response)) {
             throw new \Exception(__('Failed to fetch Notion blocks', 'gutenberg-content-importer'));
         }
 
         $blocks_data = json_decode(wp_remote_retrieve_body($blocks_response), true);
+        
+        // Fetch blocks with hierarchy preserved
+        $all_blocks = [];
+        if (isset($blocks_data['results'])) {
+            $all_blocks = $this->build_block_tree($blocks_data['results'], $api_key);
+        }
 
         return [
             'type' => 'notion',
             'page_id' => $page_id,
             'url' => $url,
             'page' => $page_data,
-            'blocks' => $blocks_data['results'] ?? [],
+            'blocks' => $all_blocks,
         ];
+    }
+    
+    /**
+     * Build block tree with hierarchy
+     *
+     * @param array $blocks Blocks array
+     * @param string $api_key API key
+     * @return array Flattened blocks with hierarchy info
+     */
+    protected function build_block_tree($blocks, $api_key, $depth = 0) {
+        $result = [];
+        
+        foreach ($blocks as $block) {
+            // Add depth info to track nesting
+            $block['_depth'] = $depth;
+            $result[] = $block;
+            
+            // Fetch and add children if they exist
+            if (isset($block['has_children']) && $block['has_children']) {
+                $children = $this->fetch_child_blocks($block['id'], $api_key);
+                if (!empty($children)) {
+                    $child_tree = $this->build_block_tree($children, $api_key, $depth + 1);
+                    $result = array_merge($result, $child_tree);
+                }
+            }
+        }
+        
+        return $result;
+    }
+    
+    /**
+     * Fetch child blocks
+     *
+     * @param string $block_id Block ID
+     * @param string $api_key API key
+     * @return array Child blocks
+     */
+    protected function fetch_child_blocks($block_id, $api_key) {
+        $response = wp_remote_get('https://api.notion.com/v1/blocks/' . $block_id . '/children', [
+            'headers' => [
+                'Authorization' => 'Bearer ' . $api_key,
+                'Notion-Version' => '2022-06-28',
+                'Content-Type' => 'application/json',
+            ],
+            'timeout' => 30,
+        ]);
+
+        if (is_wp_error($response)) {
+            error_log('GCI Notion: Failed to fetch child blocks for ' . $block_id);
+            return [];
+        }
+
+        $data = json_decode(wp_remote_retrieve_body($response), true);
+        
+        return isset($data['results']) ? $data['results'] : [];
     }
 
     /**
@@ -161,23 +222,73 @@ class Notion_Importer extends Abstract_Importer {
             'url' => $content_data['url'],
         ];
 
-        // Parse each block
+        // Parse blocks and group consecutive list items
+        $current_list = null;
+        $current_list_type = null;
+        
         foreach ($content_data['blocks'] as $block) {
-            $section = $this->parse_notion_block($block);
-            if ($section) {
-                $parsed['sections'][] = $section;
+            $block_type = $block['type'] ?? '';
+            
+            // Handle list items by grouping them
+            if ($block_type === 'bulleted_list_item' || $block_type === 'numbered_list_item') {
+                $is_ordered = ($block_type === 'numbered_list_item');
+                $text = $this->extract_rich_text($block[$block_type]['rich_text'] ?? []);
+                $depth = $block['_depth'] ?? 0;
                 
-                // Collect images
-                if ($section['type'] === 'image' && !empty($section['url'])) {
-                    $parsed['images'][] = $section['url'];
+                // Add indentation for nested items
+                if ($depth > 0) {
+                    $text = str_repeat('    ', $depth) . $text;
+                }
+                
+                // If we're starting a new list or switching list types at the same depth
+                if ($current_list === null || ($current_list_type !== $is_ordered && $depth === 0)) {
+                    // Save the previous list if it exists
+                    if ($current_list !== null) {
+                        $parsed['sections'][] = $current_list;
+                    }
+                    
+                    // Start a new list
+                    $current_list = [
+                        'type' => 'list',
+                        'ordered' => $is_ordered,
+                        'items' => [$text],
+                    ];
+                    $current_list_type = $is_ordered;
+                } else {
+                    // Add to the current list
+                    $current_list['items'][] = $text;
+                }
+            } else {
+                // If we have a pending list, add it first
+                if ($current_list !== null) {
+                    $parsed['sections'][] = $current_list;
+                    $current_list = null;
+                    $current_list_type = null;
+                }
+                
+                // Parse non-list block
+                $section = $this->parse_notion_block($block);
+                if ($section) {
+                    // Handle nested content by adding indentation for nested paragraphs
+                    $depth = $block['_depth'] ?? 0;
+                    if ($depth > 0 && $section['type'] === 'paragraph') {
+                        // Add visual indentation for nested paragraphs
+                        $section['content'] = str_repeat('&nbsp;&nbsp;&nbsp;&nbsp;', $depth) . $section['content'];
+                    }
+                    
+                    $parsed['sections'][] = $section;
+                    
+                    // Collect images
+                    if ($section['type'] === 'image' && !empty($section['url'])) {
+                        $parsed['images'][] = $section['url'];
+                    }
                 }
             }
-
-            // Handle nested blocks (children)
-            if ($block['has_children'] ?? false) {
-                // In a full implementation, we'd fetch children blocks here
-                // For now, we'll note it as a limitation
-            }
+        }
+        
+        // Don't forget to add the last list if there is one
+        if ($current_list !== null) {
+            $parsed['sections'][] = $current_list;
         }
 
         return $parsed;
@@ -407,6 +518,7 @@ class Notion_Importer extends Abstract_Importer {
     protected function parse_notion_list_item($block, $ordered = false) {
         $text = $this->extract_rich_text($block[$block['type']]['rich_text'] ?? []);
         
+        // Note: This is now handled in parse_content to group consecutive list items
         return [
             'type' => 'list',
             'ordered' => $ordered,

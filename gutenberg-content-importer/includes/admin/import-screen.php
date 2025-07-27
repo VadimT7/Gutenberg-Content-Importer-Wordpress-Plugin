@@ -14,6 +14,19 @@ class Import_Screen {
      * Render import screen
      */
     public function render() {
+        // Handle Google OAuth callback
+        if (isset($_GET['google_callback']) && isset($_GET['code'])) {
+            $this->handle_google_callback();
+            return;
+        }
+        
+        // Handle Google disconnect
+        if (isset($_GET['google_disconnect'])) {
+            \delete_option('gci_google_tokens');
+            wp_redirect(admin_url('admin.php?page=gutenberg-content-importer'));
+            exit;
+        }
+        
         $importers = Importer_Factory::get_importers();
         ?>
         <div class="wrap">
@@ -30,6 +43,9 @@ class Import_Screen {
                                     <?php echo $this->get_source_icon($slug); ?>
                                 </div>
                                 <h3><?php echo esc_html($importer['name']); ?></h3>
+                                <?php if ($slug === 'google-docs') : ?>
+                                    <?php $this->render_google_auth_status(); ?>
+                                <?php endif; ?>
                             </div>
                         <?php endforeach; ?>
                     </div>
@@ -144,5 +160,61 @@ class Import_Screen {
         ];
 
         return $icons[$source] ?? '<span class="dashicons dashicons-admin-page"></span>';
+    }
+    
+    /**
+     * Render Google authentication status
+     */
+    protected function render_google_auth_status() {
+        $tokens = \get_option('gci_google_tokens', []);
+        $authenticated = !empty($tokens['access_token']);
+        
+        if ($authenticated) {
+            echo '<div class="gci-auth-status gci-auth-connected">';
+            echo '<span class="dashicons dashicons-yes-alt"></span> ';
+            _e('Connected', 'gutenberg-content-importer');
+            echo ' <a href="' . admin_url('admin.php?page=gutenberg-content-importer&google_disconnect=1') . '" class="gci-disconnect-link" onclick="event.stopPropagation(); return confirm(\'' . esc_js(__('Are you sure you want to disconnect your Google account?', 'gutenberg-content-importer')) . '\');">';
+            _e('(Disconnect)', 'gutenberg-content-importer');
+            echo '</a>';
+            echo '</div>';
+        } else {
+            $google_importer = new \GCI\Importers\Google_Docs_Importer();
+            $auth_url = $google_importer->get_auth_url();
+            
+            echo '<div class="gci-auth-status gci-auth-disconnected">';
+            echo '<a href="' . esc_url($auth_url) . '" class="button button-small gci-google-connect" onclick="event.stopPropagation(); window.location.href=this.href; return false;">';
+            _e('Connect Google', 'gutenberg-content-importer');
+            echo '</a>';
+            echo '</div>';
+        }
+    }
+    
+    /**
+     * Handle Google OAuth callback
+     */
+    protected function handle_google_callback() {
+        $code = $_GET['code'] ?? '';
+        $state = $_GET['state'] ?? '';
+        
+        if (empty($code) || empty($state)) {
+            wp_die(__('Invalid OAuth callback', 'gutenberg-content-importer'));
+        }
+        
+        $google_importer = new \GCI\Importers\Google_Docs_Importer();
+        $success = $google_importer->handle_oauth_callback($code, $state);
+        
+        if ($success) {
+            echo '<div class="wrap">';
+            echo '<h1>' . __('Google Authentication Successful', 'gutenberg-content-importer') . '</h1>';
+            echo '<p>' . __('Your Google account has been connected successfully.', 'gutenberg-content-importer') . '</p>';
+            echo '<p><a href="' . admin_url('admin.php?page=gutenberg-content-importer') . '" class="button button-primary">' . __('Go to Import Page', 'gutenberg-content-importer') . '</a></p>';
+            echo '</div>';
+        } else {
+            echo '<div class="wrap">';
+            echo '<h1>' . __('Google Authentication Failed', 'gutenberg-content-importer') . '</h1>';
+            echo '<p>' . __('There was an error connecting your Google account. Please try again.', 'gutenberg-content-importer') . '</p>';
+            echo '<p><a href="' . admin_url('admin.php?page=gutenberg-content-importer') . '" class="button">' . __('Go Back', 'gutenberg-content-importer') . '</a></p>';
+            echo '</div>';
+        }
     }
 } 

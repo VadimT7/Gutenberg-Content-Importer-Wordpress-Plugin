@@ -1,6 +1,6 @@
 {
     "plugins": [
-      "C:/Users/v_tuchila/source/repos/wg-plugin-test/gutenberg-content-importer"
+      "C:/Users/v_tuchila/source/repos/gutenberg-content-importer/gutenberg-content-importer"
     ],
     "core": "WordPress/WordPress",
     "config": {
