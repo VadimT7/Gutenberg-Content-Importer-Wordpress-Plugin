@@ -73,6 +73,83 @@ class Medium_Importer extends Abstract_Importer {
             $parsed_content = $this->parse_content($content_data);
             $blocks = $this->convert_to_blocks($parsed_content);
 
+            // Calculate statistics from parsed sections
+            $stats = [
+                'paragraphs' => 0,
+                'images' => 0,
+                'embeds' => 0,
+                'headings' => 0,
+                'lists' => 0,
+                'tables' => 0,
+            ];
+            
+            foreach ($parsed_content['sections'] as $section) {
+                switch ($section['type']) {
+                    case 'paragraph':
+                        $stats['paragraphs']++;
+                        break;
+                    case 'heading':
+                        $stats['headings']++;
+                        break;
+                    case 'list':
+                        $stats['lists']++;
+                        break;
+                    case 'table':
+                        $stats['tables']++;
+                        break;
+                    case 'image':
+                        $stats['images']++;
+                        break;
+                }
+            }
+
+            // Generate preview HTML content
+            $preview_html = '';
+            $char_count = 0;
+            $max_chars = 2000; // Increased for better preview
+            $first_image_skipped = false;
+            
+            foreach ($parsed_content['sections'] as $section) {
+                if ($char_count >= $max_chars) {
+                    break;
+                }
+                
+                switch ($section['type']) {
+                    case 'paragraph':
+                        $text = strip_tags($section['content']);
+                        $preview_html .= '<p>' . $section['content'] . '</p>';
+                        $char_count += strlen($text);
+                        break;
+                    case 'heading':
+                        $text = strip_tags($section['content']);
+                        $preview_html .= '<h' . $section['level'] . '>' . $section['content'] . '</h' . $section['level'] . '>';
+                        $char_count += strlen($text);
+                        break;
+                    case 'image':
+                        // Skip the first image (featured image) to avoid duplication
+                        if (!$first_image_skipped) {
+                            $first_image_skipped = true;
+                            continue;
+                        }
+                        $preview_html .= '<img src="' . esc_url($section['url']) . '" alt="' . esc_attr($section['alt'] ?? '') . '" style="max-width: 100%; height: auto;" />';
+                        break;
+                    case 'list':
+                        $list_tag = $section['ordered'] ? 'ol' : 'ul';
+                        $preview_html .= '<' . $list_tag . '>';
+                        foreach ($section['items'] as $item) {
+                            $preview_html .= '<li>' . $item . '</li>';
+                        }
+                        $preview_html .= '</' . $list_tag . '>';
+                        break;
+                    case 'quote':
+                        $preview_html .= '<blockquote style="border-left: 4px solid #ddd; padding-left: 15px; margin: 15px 0; font-style: italic;">' . $section['content'] . '</blockquote>';
+                        break;
+                    case 'code':
+                        $preview_html .= '<pre style="background: #f4f4f4; padding: 10px; border-radius: 4px; overflow-x: auto;"><code>' . esc_html($section['content']) . '</code></pre>';
+                        break;
+                }
+            }
+
             return [
                 'success' => true,
                 'title' => $parsed_content['title'],
@@ -82,12 +159,9 @@ class Medium_Importer extends Abstract_Importer {
                 'featured_image' => $parsed_content['featured_image'] ?? '',
                 'tags' => $parsed_content['tags'] ?? [],
                 'content_preview' => $this->get_preview_text($parsed_content),
+                'preview_html' => $preview_html,
                 'blocks' => $blocks,
-                'stats' => [
-                    'paragraphs' => count($parsed_content['sections']),
-                    'images' => count($parsed_content['images'] ?? []),
-                    'embeds' => count($parsed_content['embeds'] ?? []),
-                ],
+                'stats' => $stats,
             ];
         } catch (\Exception $e) {
             return [
