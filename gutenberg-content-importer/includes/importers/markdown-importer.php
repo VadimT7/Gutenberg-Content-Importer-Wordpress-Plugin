@@ -50,15 +50,86 @@ class Markdown_Importer extends Abstract_Importer {
         try {
             $parsed = $this->parse_content(['content' => $url_or_content]);
             
+            // Calculate statistics from parsed sections
+            $stats = [
+                'paragraphs' => 0,
+                'images' => 0,
+                'embeds' => 0,
+                'headings' => 0,
+                'lists' => 0,
+                'tables' => 0,
+            ];
+            
+            foreach ($parsed['sections'] as $section) {
+                switch ($section['type']) {
+                    case 'paragraph':
+                        $stats['paragraphs']++;
+                        break;
+                    case 'heading':
+                        $stats['headings']++;
+                        break;
+                    case 'list':
+                        $stats['lists']++;
+                        break;
+                    case 'table':
+                        $stats['tables']++;
+                        break;
+                    case 'image':
+                        $stats['images']++;
+                        break;
+                }
+            }
+
+            // Generate preview HTML content
+            $preview_html = '';
+            $char_count = 0;
+            $max_chars = 2000; // Increased for better preview
+            
+            foreach ($parsed['sections'] as $section) {
+                if ($char_count >= $max_chars) {
+                    break;
+                }
+                
+                switch ($section['type']) {
+                    case 'paragraph':
+                        $text = strip_tags($section['content']);
+                        $preview_html .= '<p>' . $section['content'] . '</p>';
+                        $char_count += strlen($text);
+                        break;
+                    case 'heading':
+                        $text = strip_tags($section['content']);
+                        $preview_html .= '<h' . $section['level'] . '>' . $section['content'] . '</h' . $section['level'] . '>';
+                        $char_count += strlen($text);
+                        break;
+                    case 'image':
+                        $preview_html .= '<img src="' . esc_url($section['url']) . '" alt="' . esc_attr($section['alt'] ?? '') . '" style="max-width: 100%; height: auto;" />';
+                        break;
+                    case 'list':
+                        $list_tag = $section['ordered'] ? 'ol' : 'ul';
+                        $preview_html .= '<' . $list_tag . '>';
+                        foreach ($section['items'] as $item) {
+                            $preview_html .= '<li>' . $item . '</li>';
+                        }
+                        $preview_html .= '</' . $list_tag . '>';
+                        break;
+                    case 'quote':
+                        $preview_html .= '<blockquote style="border-left: 4px solid #ddd; padding-left: 15px; margin: 15px 0; font-style: italic;">' . $section['content'] . '</blockquote>';
+                        break;
+                    case 'code':
+                        $preview_html .= '<pre style="background: #f4f4f4; padding: 10px; border-radius: 4px; overflow-x: auto;"><code>' . esc_html($section['content']) . '</code></pre>';
+                        break;
+                    case 'separator':
+                        $preview_html .= '<hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;" />';
+                        break;
+                }
+            }
+            
             return [
                 'success' => true,
                 'title' => $parsed['title'] ?? 'Markdown Content',
                 'content_preview' => $this->get_preview_text($parsed),
-                'stats' => [
-                    'paragraphs' => count(array_filter($parsed['sections'], fn($s) => $s['type'] === 'paragraph')),
-                    'images' => count(array_filter($parsed['sections'], fn($s) => $s['type'] === 'image')),
-                    'embeds' => 0,
-                ],
+                'preview_html' => $preview_html,
+                'stats' => $stats,
             ];
         } catch (\Exception $e) {
             return [

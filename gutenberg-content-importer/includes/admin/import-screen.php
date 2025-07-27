@@ -67,7 +67,7 @@ class Import_Screen {
 
                         <!-- Paste Content -->
                         <div class="gci-form-field gci-content-field" style="display: none;">
-                            <label for="gci-content"><?php _e('Paste Content', 'gutenberg-content-importer'); ?></label>
+                            <label for="gci-content"><?php _e('Markdown Content', 'gutenberg-content-importer'); ?></label>
                             <textarea id="gci-content" name="content" rows="10" class="large-text"></textarea>
                             <p class="description"><?php _e('Paste the content you want to import', 'gutenberg-content-importer'); ?></p>
                         </div>

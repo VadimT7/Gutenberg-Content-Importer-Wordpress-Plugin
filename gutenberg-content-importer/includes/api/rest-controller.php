@@ -140,7 +140,10 @@ class REST_Controller {
 
         try {
             $importer = Importer_Factory::create($source);
-            $preview = $importer->preview($url ?: $content);
+            
+            // For Markdown, always use content; for others, use URL if available
+            $input = ($source === 'markdown') ? $content : ($url ?: $content);
+            $preview = $importer->preview($input);
 
             return new \WP_REST_Response($preview, 200);
         } catch (\Exception $e) {
@@ -166,7 +169,10 @@ class REST_Controller {
 
         try {
             $importer = Importer_Factory::create($source);
-            $result = $importer->import($url ?: $content, $options);
+            
+            // For Markdown, always use content; for others, use URL if available
+            $input = ($source === 'markdown') ? $content : ($url ?: $content);
+            $result = $importer->import($input, $options);
 
             // Save to history
             $this->save_import_history($result);
