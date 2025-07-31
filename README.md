@@ -1,5 +1,7 @@
 # Gutenberg Content Importer
 
+**Note:** The Wordpress plugin is located inside the _gutenberg-content-importer_ folder.
+
 **Transform content from anywhere into perfect Gutenberg blocks with one click.**
 
 [![WordPress Plugin](https://img.shields.io/badge/WordPress-Plugin-blue.svg)](https://wordpress.org/)
@@ -298,4 +300,4 @@ Built with ❤️ for Automattic's mission to democratize publishing.
 
 ---
 
-**Ready for production deployment and immediate impact on Gutenberg adoption.** 
+Built with ❤️ for Automattic's mission to democratize publishing. 
