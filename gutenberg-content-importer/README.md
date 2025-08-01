@@ -1,6 +1,6 @@
 # Gutenberg Content Importer
 
-**Note:** The Wordpress plugin is located inside the _gutenberg-content-importer_ folder.
+**Note:** The Wordpress plugin is located in the current folder.
 
 **Transform content from anywhere into perfect Gutenberg blocks with one click.**
 
