@@ -59,13 +59,13 @@
 <img width="1892" height="1094" alt="image" src="https://github.com/user-attachments/assets/31292660-8abc-44c6-9be8-14a026228a20" />
 
 ### Import History
-**[SCREENSHOT: History table showing imported posts with source, date, and action links. Clean WordPress admin table with edit/view actions.]**
+<img width="1912" height="774" alt="image" src="https://github.com/user-attachments/assets/98f5b928-5c20-411b-8c60-368928170d0b" />
 
 ### Settings Panel
-**[SCREENSHOT: Settings page with API key configuration for Medium and Notion, default import options, and image handling preferences.]**
+<img width="1365" height="847" alt="image" src="https://github.com/user-attachments/assets/32569024-1afa-41af-b16a-bbbb272396c8" />
 
-### Gutenberg Editor Result
-**[SCREENSHOT: WordPress Gutenberg editor showing perfectly converted blocks - headings, paragraphs, images, code blocks, and quotes all properly structured.]**
+### Gutenberg Editor Result - Perfect Block Conversion
+<img width="1028" height="465" alt="image" src="https://github.com/user-attachments/assets/04b85462-efa5-480f-8489-f5879e347f65" />
 
 ## 🛠 Technical Excellence
 
