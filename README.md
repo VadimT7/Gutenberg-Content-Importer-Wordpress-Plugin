@@ -304,7 +304,3 @@ GPL v2 or later - Because open source is the WordPress way.
 ## 🙏 Acknowledgments
 
 Built with ❤️ for Automattic's mission to democratize publishing.
-
----
-
-Built with ❤️ for Automattic's mission to democratize publishing. 
