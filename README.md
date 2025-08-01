@@ -262,9 +262,10 @@ We welcome contributions! The plugin is built with extensibility in mind:
 
 ### Development Setup
 ```bash
-git clone https://github.com/automattic/gutenberg-content-importer
+git clone https://github.com/VadimT7/Gutenberg-Content-Importer-Wordpress-Plugin.git
 cd gutenberg-content-importer
 composer install
+wp-env start
 ```
 
 ### Adding New Importers
