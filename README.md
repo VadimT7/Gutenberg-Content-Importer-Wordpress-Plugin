@@ -44,27 +44,25 @@
 <img width="1918" height="768" alt="image" src="https://github.com/user-attachments/assets/2d600c09-be19-40c9-b740-ab81c0cd081e" />
 
 ### Import Process (example: Medium Article Import)
-#### Select the Source from Which to Import the Article
+#### 1. Select the Source from Which to Import the Article
 <img width="1918" height="1108" alt="image" src="https://github.com/user-attachments/assets/49141760-5bd9-485a-8801-f94ee5628507" />
 
-#### Click on "Import" to Import the Article as a Post or a Page
+#### 2. Click on "Import" to Import the Article as a Post or a Page
 <img width="1889" height="1060" alt="image" src="https://github.com/user-attachments/assets/e33c031e-52e0-4338-a7ee-60f401771ffe" />
 
-#### See the Final Result by clicking "Edit Post" or "View Post" in the Image Above
+#### 3. See the Final Result by clicking "View Post" or "Edit Post" in the Image Above
 <img width="1890" height="1093" alt="image" src="https://github.com/user-attachments/assets/36a39971-80a9-49e4-bcdc-78d39cebed1e" />
 
+### Preview System - See What Will Be Imported Before It Is Saved
+<img width="1886" height="1095" alt="image" src="https://github.com/user-attachments/assets/28640427-1dd6-4399-8e06-8a1721b650bb" />
 
-### Preview System
-<img width="1893" height="1096" alt="image" src="https://github.com/user-attachments/assets/0e37fc08-a2a5-4698-8802-41fcb594a6a8" />
-<img width="1892" height="1094" alt="image" src="https://github.com/user-attachments/assets/31292660-8abc-44c6-9be8-14a026228a20" />
-
-### Import History
+### Import History - See All the Articles You Imported. View Them. Edit Them.
 <img width="1912" height="774" alt="image" src="https://github.com/user-attachments/assets/98f5b928-5c20-411b-8c60-368928170d0b" />
 
-### Settings Panel
+### Settings Panel - Set Up Your API Keys for Each of the Article Sources 
 <img width="1365" height="847" alt="image" src="https://github.com/user-attachments/assets/32569024-1afa-41af-b16a-bbbb272396c8" />
 
-### Gutenberg Editor Result - Perfect Block Conversion
+### Gutenberg Editor Result - Savour the Perfect Gutenberg Block Conversion
 <img width="1028" height="465" alt="image" src="https://github.com/user-attachments/assets/04b85462-efa5-480f-8489-f5879e347f65" />
 
 ## 🛠 Technical Excellence
