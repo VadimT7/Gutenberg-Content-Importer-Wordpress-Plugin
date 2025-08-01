@@ -41,13 +41,22 @@
 ## 📸 Screenshots
 
 ### Main Import Interface
-**[SCREENSHOT: Main import screen showing source selection grid with Medium, Notion, Google Docs, and Markdown icons. Clean, modern WordPress admin interface with cards for each platform.]**
+<img width="1918" height="768" alt="image" src="https://github.com/user-attachments/assets/2d600c09-be19-40c9-b740-ab81c0cd081e" />
 
-### Import Process
-**[SCREENSHOT: Import form with URL input, options for image download and formatting preservation, and post status selection. Shows the step-by-step import workflow.]**
+### Import Process (example: Medium Article Import)
+#### Select the Source from Which to Import the Article
+<img width="1918" height="1108" alt="image" src="https://github.com/user-attachments/assets/49141760-5bd9-485a-8801-f94ee5628507" />
+
+#### Click on "Import" to Import the Article as a Post or a Page
+<img width="1889" height="1060" alt="image" src="https://github.com/user-attachments/assets/e33c031e-52e0-4338-a7ee-60f401771ffe" />
+
+#### See the Final Result by clicking "Edit Post" or "View Post" in the Image Above
+<img width="1890" height="1093" alt="image" src="https://github.com/user-attachments/assets/36a39971-80a9-49e4-bcdc-78d39cebed1e" />
+
 
 ### Preview System
-**[SCREENSHOT: Preview modal showing original content on left and converted Gutenberg blocks on right. Demonstrates the before/after transformation.]**
+<img width="1893" height="1096" alt="image" src="https://github.com/user-attachments/assets/0e37fc08-a2a5-4698-8802-41fcb594a6a8" />
+<img width="1892" height="1094" alt="image" src="https://github.com/user-attachments/assets/31292660-8abc-44c6-9be8-14a026228a20" />
 
 ### Import History
 **[SCREENSHOT: History table showing imported posts with source, date, and action links. Clean WordPress admin table with edit/view actions.]**
