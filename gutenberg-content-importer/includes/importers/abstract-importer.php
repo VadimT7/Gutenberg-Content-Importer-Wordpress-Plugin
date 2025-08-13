@@ -10,6 +10,7 @@ namespace GCI\Importers;
 use GCI\Blocks\Block_Converter;
 use GCI\Utils\Image_Handler;
 use GCI\Utils\Content_Parser;
+use GCI\Core\Progress_Tracker;
 
 abstract class Abstract_Importer implements Importer_Interface {
     /**
@@ -50,12 +51,60 @@ abstract class Abstract_Importer implements Importer_Interface {
      * @return array Import result
      */
     public function import($url_or_content, $options = []) {
+        // Generate unique import ID
+        $import_id = isset($options['import_id']) ? $options['import_id'] : uniqid('import_');
+        
         try {
+            // Initialize progress tracking
+            Progress_Tracker::init_progress($import_id, [
+                'source' => $this->get_slug(),
+                'url' => $url_or_content,
+            ]);
+
+            // Update progress: Fetching content
+            Progress_Tracker::update_progress(
+                $import_id,
+                Progress_Tracker::STATE_FETCHING,
+                10,
+                __('Fetching content from source...', 'gutenberg-content-importer'),
+                sprintf(__('Source: %s', 'gutenberg-content-importer'), $this->get_name())
+            );
+
             // Get content data
             $content_data = $this->fetch_content($url_or_content);
 
+            // Check if cancelled
+            $progress = Progress_Tracker::get_progress($import_id);
+            if ($progress && $progress['cancelled']) {
+                throw new \Exception(__('Import cancelled by user', 'gutenberg-content-importer'));
+            }
+
+            // Update progress: Parsing content
+            Progress_Tracker::update_progress(
+                $import_id,
+                Progress_Tracker::STATE_PARSING,
+                30,
+                __('Parsing content structure...', 'gutenberg-content-importer'),
+                __('Analyzing headings, paragraphs, and media', 'gutenberg-content-importer')
+            );
+
             // Parse content
             $parsed_content = $this->parse_content($content_data);
+
+            // Check if cancelled
+            $progress = Progress_Tracker::get_progress($import_id);
+            if ($progress && $progress['cancelled']) {
+                throw new \Exception(__('Import cancelled by user', 'gutenberg-content-importer'));
+            }
+
+            // Update progress: Converting to blocks
+            Progress_Tracker::update_progress(
+                $import_id,
+                Progress_Tracker::STATE_CONVERTING,
+                50,
+                __('Converting to Gutenberg blocks...', 'gutenberg-content-importer'),
+                sprintf(__('Processing %d content sections', 'gutenberg-content-importer'), count($parsed_content['sections'] ?? []))
+            );
 
             // Convert to blocks
             $blocks = $this->convert_to_blocks($parsed_content, $options);
@@ -63,17 +112,32 @@ abstract class Abstract_Importer implements Importer_Interface {
             // Debug the blocks content
             error_log('GCI Debug: Block content before post creation: ' . substr($blocks, 0, 1000));
 
+            // Update progress: Creating post
+            Progress_Tracker::update_progress(
+                $import_id,
+                Progress_Tracker::STATE_CREATING_POST,
+                70,
+                __('Creating WordPress post...', 'gutenberg-content-importer'),
+                isset($parsed_content['title']) ? $parsed_content['title'] : ''
+            );
+
             // Create post
             $post_id = $this->create_post($parsed_content, $blocks, $options);
 
             // Handle images
             if (isset($options['download_images']) && $options['download_images'] && !empty($parsed_content['images'])) {
-                $this->process_images($post_id, $parsed_content['images']);
+                Progress_Tracker::update_progress(
+                    $import_id,
+                    Progress_Tracker::STATE_DOWNLOADING_IMAGES,
+                    85,
+                    __('Downloading and processing images...', 'gutenberg-content-importer'),
+                    sprintf(__('%d images found', 'gutenberg-content-importer'), count($parsed_content['images']))
+                );
+                
+                $this->process_images($post_id, $parsed_content['images'], $import_id);
             }
 
-
-
-            return [
+            $result = [
                 'success' => true,
                 'post_id' => $post_id,
                 'post_url' => \get_permalink($post_id),
@@ -81,13 +145,23 @@ abstract class Abstract_Importer implements Importer_Interface {
                 'title' => isset($parsed_content['title']) ? $parsed_content['title'] : '',
                 'source' => $this->get_name(),
                 'url' => $url_or_content,
+                'import_id' => $import_id,
             ];
 
+            // Mark as completed
+            Progress_Tracker::complete_import($import_id, $result);
+
+            return $result;
+
         } catch (\Exception $e) {
+            // Mark as failed
+            Progress_Tracker::fail_import($import_id, $e->getMessage());
+            
             return [
                 'success' => false,
                 'error' => $e->getMessage(),
                 'source' => $this->get_name(),
+                'import_id' => $import_id,
             ];
         }
     }
@@ -292,16 +366,28 @@ abstract class Abstract_Importer implements Importer_Interface {
      *
      * @param int $post_id Post ID
      * @param array $images Image URLs
+     * @param string $import_id Import ID for progress tracking
      */
-    protected function process_images($post_id, $images) {
+    protected function process_images($post_id, $images, $import_id = null) {
         if (!is_array($images)) {
             error_log('GCI Warning: Images parameter is not an array');
             return;
         }
         
+        $total_images = count($images);
+        $processed = 0;
+        
         foreach ($images as $image_url) {
             if (empty($image_url) || !is_string($image_url)) {
                 continue;
+            }
+            
+            // Check if cancelled
+            if ($import_id) {
+                $progress = Progress_Tracker::get_progress($import_id);
+                if ($progress && $progress['cancelled']) {
+                    break;
+                }
             }
             
             try {
@@ -313,6 +399,20 @@ abstract class Abstract_Importer implements Importer_Interface {
                     if ($new_url) {
                         $this->update_image_urls($post_id, $image_url, $new_url);
                     }
+                }
+                
+                $processed++;
+                
+                // Update progress
+                if ($import_id && $total_images > 0) {
+                    $image_progress = 85 + (10 * $processed / $total_images);
+                    Progress_Tracker::update_progress(
+                        $import_id,
+                        Progress_Tracker::STATE_DOWNLOADING_IMAGES,
+                        $image_progress,
+                        __('Downloading and processing images...', 'gutenberg-content-importer'),
+                        sprintf(__('Processed %d of %d images', 'gutenberg-content-importer'), $processed, $total_images)
+                    );
                 }
             } catch (\Exception $e) {
                 error_log('GCI Error processing image ' . $image_url . ': ' . $e->getMessage());

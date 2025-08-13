@@ -6,9 +6,12 @@
     'use strict';
 
     const GCI = {
+        activeImports: new Map(),
+        
         init: function() {
             this.bindEvents();
             this.initSourceSelection();
+            this.checkActiveImports();
         },
 
         bindEvents: function() {
@@ -32,11 +35,28 @@
                 e.stopPropagation();
                 // The onclick handler will take care of navigation
             });
+            
+            // Cancel import button
+            $(document).on('click', '.gci-cancel-import', this.cancelImport);
         },
 
         initSourceSelection: function() {
             // Highlight first source by default
             $('.gci-source-item:first').addClass('selected');
+        },
+        
+        checkActiveImports: function() {
+            // Check for any active imports on page load
+            $.post(gciAdmin.ajaxUrl, {
+                action: 'gci_get_active_imports',
+                nonce: gciAdmin.ajaxNonce
+            }, function(response) {
+                if (response.success && response.data.length > 0) {
+                    response.data.forEach(importData => {
+                        GCI.resumeProgressTracking(importData.id);
+                    });
+                }
+            });
         },
 
         selectSource: function(e) {
@@ -167,10 +187,9 @@
         processImport: async function(e) {
             e.preventDefault();
 
-            const formData = new FormData(this);
-            const source = formData.get('source');
-            const url = formData.get('url');
-            const content = formData.get('content');
+            const source = $('#gci-source').val();
+            const url = $('#gci-url').val();
+            const content = $('#gci-content').val();
 
             if (!source || (!url && !content)) {
                 GCI.showNotice('Please select a source and provide content', 'error');
@@ -179,38 +198,198 @@
 
             // Collect options
             const options = {
-                download_images: formData.get('download_images') === '1',
-                preserve_formatting: formData.get('preserve_formatting') === '1',
-                post_status: formData.get('post_status'),
-                post_type: formData.get('post_type')
+                download_images: $('#download_images').is(':checked'),
+                preserve_formatting: $('#preserve_formatting').is(':checked'),
+                post_status: $('#post_status').val(),
+                post_type: $('#post_type').val()
             };
 
-            // Show loading
-            GCI.showLoading('import');
-
-            try {
-                const response = await wp.apiFetch({
-                    path: '/gci/v1/import/process',
-                    method: 'POST',
-                    data: {
-                        source: source,
-                        url: url,
-                        content: content,
-                        options: options
-                    }
-                });
-
-                if (response.success) {
-                    GCI.displayResults(response);
-                    GCI.showNotice('Content imported successfully!', 'success');
+            // Initiate import via AJAX (will return import ID for tracking)
+            $.post(gciAdmin.ajaxUrl, {
+                action: 'gci_process_import',
+                nonce: gciAdmin.ajaxNonce,
+                source: source,
+                url: url,
+                content: content,
+                options: JSON.stringify(options)
+            }, function(response) {
+                if (response.success && response.data.import_id) {
+                    // Start tracking progress
+                    GCI.trackImportProgress(response.data.import_id, response.data.sse_url);
                 } else {
-                    GCI.showNotice(response.error || 'Import failed', 'error');
+                    GCI.showNotice('Failed to start import', 'error');
                 }
-            } catch (error) {
-                GCI.showNotice('Import failed: ' + error.message, 'error');
-            } finally {
-                GCI.hideLoading();
+            }).fail(function() {
+                GCI.showNotice('Failed to start import', 'error');
+            });
+        },
+        
+        trackImportProgress: function(importId, sseUrl) {
+            // Create progress UI
+            const progressHtml = `
+                <div class="gci-import-progress" id="import-${importId}">
+                    <div class="gci-progress-header">
+                        <h3>Importing Content...</h3>
+                        <button type="button" class="button button-small gci-cancel-import" data-import-id="${importId}">
+                            Cancel
+                        </button>
+                    </div>
+                    <div class="gci-progress-bar-container">
+                        <div class="gci-progress-bar" style="width: 0%"></div>
+                    </div>
+                    <div class="gci-progress-status">Initializing...</div>
+                    <div class="gci-progress-details"></div>
+                </div>
+            `;
+            
+            // Hide form and show progress
+            $('.gci-import-form').slideUp();
+            $('.gci-preview-area').slideUp();
+            
+            // Add progress UI
+            const $progressArea = $('.gci-progress-area');
+            if ($progressArea.length === 0) {
+                $('.gci-import-form').after('<div class="gci-progress-area"></div>');
             }
+            $('.gci-progress-area').html(progressHtml).slideDown();
+            
+            // Start SSE connection
+            const eventSource = new EventSource(sseUrl);
+            this.activeImports.set(importId, eventSource);
+            
+            eventSource.addEventListener('progress', function(event) {
+                const data = JSON.parse(event.data);
+                GCI.updateProgress(importId, data);
+            });
+            
+            eventSource.addEventListener('completed', function(event) {
+                const data = JSON.parse(event.data);
+                GCI.importCompleted(importId, data);
+                eventSource.close();
+                GCI.activeImports.delete(importId);
+            });
+            
+            eventSource.addEventListener('error', function(event) {
+                const data = event.data ? JSON.parse(event.data) : {};
+                GCI.importFailed(importId, data.message || 'Import failed');
+                eventSource.close();
+                GCI.activeImports.delete(importId);
+            });
+            
+            eventSource.addEventListener('close', function() {
+                eventSource.close();
+                GCI.activeImports.delete(importId);
+            });
+            
+            eventSource.onerror = function() {
+                // Reconnect if connection lost
+                if (eventSource.readyState === EventSource.CLOSED) {
+                    setTimeout(() => {
+                        GCI.resumeProgressTracking(importId);
+                    }, 3000);
+                }
+            };
+        },
+        
+        resumeProgressTracking: function(importId) {
+            // Generate SSE URL for existing import
+            const sseUrl = gciAdmin.ajaxUrl + '?action=gci_sse_progress&import_id=' + importId + '&nonce=' + gciAdmin.sseNonce;
+            this.trackImportProgress(importId, sseUrl);
+        },
+        
+        updateProgress: function(importId, data) {
+            const $progress = $(`#import-${importId}`);
+            if (!$progress.length) return;
+            
+            // Update progress bar
+            $progress.find('.gci-progress-bar').css('width', data.progress + '%');
+            
+            // Update status message
+            $progress.find('.gci-progress-status').text(data.message);
+            
+            // Update details if available
+            if (data.details) {
+                $progress.find('.gci-progress-details').html(data.details);
+            }
+            
+            // Update state-specific styling
+            $progress.removeClass('state-idle state-fetching state-parsing state-converting state-downloading_images state-creating_post')
+                     .addClass('state-' + data.state);
+        },
+        
+        importCompleted: function(importId, data) {
+            const $progress = $(`#import-${importId}`);
+            
+            // Parse the details JSON if it's a string
+            let result = data.details;
+            if (typeof result === 'string') {
+                try {
+                    result = JSON.parse(result);
+                } catch (e) {
+                    console.error('Failed to parse import result:', e);
+                }
+            }
+            
+            // Update progress to completion
+            $progress.find('.gci-progress-bar').css('width', '100%');
+            $progress.find('.gci-progress-status').text('Import completed!');
+            
+            // Show success and results
+            setTimeout(() => {
+                $progress.slideUp();
+                if (result && result.success) {
+                    this.displayResults(result);
+                    this.showNotice('Content imported successfully!', 'success');
+                }
+            }, 1000);
+        },
+        
+        importFailed: function(importId, errorMessage) {
+            const $progress = $(`#import-${importId}`);
+            
+            $progress.addClass('import-failed');
+            $progress.find('.gci-progress-status').text('Import failed: ' + errorMessage);
+            $progress.find('.gci-cancel-import').text('Close').off('click').on('click', function() {
+                $progress.slideUp();
+                $('.gci-import-form').slideDown();
+            });
+            
+            this.showNotice('Import failed: ' + errorMessage, 'error');
+        },
+        
+        cancelImport: function(e) {
+            e.preventDefault();
+            const importId = $(this).data('import-id');
+            
+            if (!confirm('Are you sure you want to cancel this import?')) {
+                return;
+            }
+            
+            // Send cancel request
+            $.post(gciAdmin.ajaxUrl, {
+                action: 'gci_cancel_import',
+                nonce: gciAdmin.ajaxNonce,
+                import_id: importId
+            }, function(response) {
+                if (response.success) {
+                    // Close SSE connection
+                    const eventSource = GCI.activeImports.get(importId);
+                    if (eventSource) {
+                        eventSource.close();
+                        GCI.activeImports.delete(importId);
+                    }
+                    
+                    // Update UI
+                    const $progress = $(`#import-${importId}`);
+                    $progress.addClass('import-cancelled');
+                    $progress.find('.gci-progress-status').text('Import cancelled');
+                    
+                    setTimeout(() => {
+                        $progress.slideUp();
+                        $('.gci-import-form').slideDown();
+                    }, 1500);
+                }
+            });
         },
 
         displayPreview: function(data) {
@@ -345,4 +524,4 @@
         GCI.init();
     });
 
-})(jQuery); 
+})(jQuery);

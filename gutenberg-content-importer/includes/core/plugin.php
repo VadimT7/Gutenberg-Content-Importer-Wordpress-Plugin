@@ -10,7 +10,9 @@ namespace GCI\Core;
 use GCI\Admin\Admin_Menu;
 use GCI\Admin\Import_Screen;
 use GCI\API\REST_Controller;
+use GCI\API\SSE_Controller;
 use GCI\Importers\Importer_Factory;
+use GCI\Core\Progress_Tracker;
 
 class Plugin {
     /**
@@ -71,6 +73,8 @@ class Plugin {
         add_action('wp_ajax_gci_preview_import', [$this, 'ajax_preview_import']);
         add_action('wp_ajax_gci_process_import', [$this, 'ajax_process_import']);
         add_action('wp_ajax_gci_get_import_history', [$this, 'ajax_get_import_history']);
+        add_action('wp_ajax_gci_cancel_import', [$this, 'ajax_cancel_import']);
+        add_action('wp_ajax_gci_get_active_imports', [$this, 'ajax_get_active_imports']);
     }
 
     /**
@@ -91,6 +95,10 @@ class Plugin {
     private function init_api() {
         $rest_controller = new REST_Controller();
         $rest_controller->init();
+        
+        // Initialize SSE controller
+        $sse_controller = new SSE_Controller();
+        $sse_controller->init();
     }
 
     /**
@@ -134,6 +142,7 @@ class Plugin {
             'nonce' => wp_create_nonce('wp_rest'),
             'ajaxUrl' => admin_url('admin-ajax.php'),
             'ajaxNonce' => wp_create_nonce('gci-ajax'),
+            'sseNonce' => wp_create_nonce('gci-sse'),
             'strings' => [
                 'importing' => __('Importing...', 'gutenberg-content-importer'),
                 'import_complete' => __('Import complete!', 'gutenberg-content-importer'),
@@ -199,17 +208,24 @@ class Plugin {
         $content = wp_kses_post($_POST['content'] ?? '');
         $options = json_decode(stripslashes($_POST['options'] ?? '{}'), true);
 
-        try {
-            $importer = Importer_Factory::create($source);
-            $result = $importer->import($url ?: $content, $options);
+        // Generate import ID for progress tracking
+        $import_id = uniqid('import_');
+        $options['import_id'] = $import_id;
 
-            // Save to import history
-            $this->save_import_history($result);
+        // Return import ID immediately for progress tracking
+        wp_send_json_success([
+            'import_id' => $import_id,
+            'sse_url' => SSE_Controller::get_sse_url($import_id),
+        ]);
 
-            wp_send_json_success($result);
-        } catch (\Exception $e) {
-            wp_send_json_error($e->getMessage());
-        }
+        // Note: The actual import will be handled via a separate background process
+        // For now, we'll use wp_schedule_single_event to simulate background processing
+        wp_schedule_single_event(time() + 1, 'gci_process_import_background', [
+            'source' => $source,
+            'url' => $url,
+            'content' => $content,
+            'options' => $options,
+        ]);
     }
 
     /**
@@ -250,5 +266,67 @@ class Plugin {
         $history = array_slice($history, 0, 100);
 
         update_option('gci_import_history', $history);
+    }
+
+    /**
+     * AJAX handler for cancelling import
+     */
+    public function ajax_cancel_import() {
+        check_ajax_referer('gci-ajax', 'nonce');
+
+        if (!current_user_can('edit_posts')) {
+            wp_die(__('Insufficient permissions', 'gutenberg-content-importer'));
+        }
+
+        $import_id = sanitize_text_field($_POST['import_id'] ?? '');
+        
+        if (empty($import_id)) {
+            wp_send_json_error(__('Invalid import ID', 'gutenberg-content-importer'));
+        }
+
+        $success = Progress_Tracker::cancel_import($import_id);
+        
+        if ($success) {
+            wp_send_json_success(['message' => __('Import cancelled', 'gutenberg-content-importer')]);
+        } else {
+            wp_send_json_error(__('Failed to cancel import', 'gutenberg-content-importer'));
+        }
+    }
+
+    /**
+     * AJAX handler for getting active imports
+     */
+    public function ajax_get_active_imports() {
+        check_ajax_referer('gci-ajax', 'nonce');
+
+        if (!current_user_can('edit_posts')) {
+            wp_die(__('Insufficient permissions', 'gutenberg-content-importer'));
+        }
+
+        $active_imports = Progress_Tracker::get_active_imports();
+        wp_send_json_success($active_imports);
+    }
+
+    /**
+     * Process import in background
+     *
+     * @param string $source Import source
+     * @param string $url URL to import
+     * @param string $content Content to import
+     * @param array $options Import options
+     */
+    public static function process_import_background($source, $url, $content, $options) {
+        try {
+            $importer = Importer_Factory::create($source);
+            $result = $importer->import($url ?: $content, $options);
+
+            // Save to import history if successful
+            if ($result['success']) {
+                $plugin = self::get_instance();
+                $plugin->save_import_history($result);
+            }
+        } catch (\Exception $e) {
+            error_log('GCI Background import error: ' . $e->getMessage());
+        }
     }
 } 

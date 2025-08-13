@@ -8,6 +8,7 @@
 namespace GCI\API;
 
 use GCI\Importers\Importer_Factory;
+use GCI\API\SSE_Controller;
 
 class REST_Controller {
     /**
@@ -167,27 +168,23 @@ class REST_Controller {
         $content = $request->get_param('content');
         $options = $request->get_param('options');
 
-        try {
-            $importer = Importer_Factory::create($source);
-            
-            // For Markdown, always use content; for others, use URL if available
-            $input = ($source === 'markdown') ? $content : ($url ?: $content);
-            $result = $importer->import($input, $options);
+        // Generate import ID for progress tracking
+        $import_id = uniqid('import_');
+        $options['import_id'] = $import_id;
 
-            // Save to history
-            $this->save_import_history($result);
+        // Schedule the import to run in background
+        wp_schedule_single_event(time() + 1, 'gci_process_import_background', [
+            'source' => $source,
+            'url' => $url,
+            'content' => $content,
+            'options' => $options,
+        ]);
 
-            return new \WP_REST_Response($result, 200);
-        } catch (\Exception $e) {
-            error_log('GCI Import Error: ' . $e->getMessage());
-            error_log('GCI Import Stack Trace: ' . $e->getTraceAsString());
-            
-            return new \WP_Error(
-                'import_failed',
-                $e->getMessage(),
-                ['status' => 500]
-            );
-        }
+        // Return import ID immediately for progress tracking
+        return new \WP_REST_Response([
+            'import_id' => $import_id,
+            'sse_url' => SSE_Controller::get_sse_url($import_id),
+        ], 200);
     }
 
     /**
