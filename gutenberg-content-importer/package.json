@@ -1,0 +1,43 @@
+{
+    "name": "gutenberg-content-importer",
+    "version": "1.0.0",
+    "description": "Transform content from anywhere into perfect Gutenberg blocks with one click",
+    "main": "index.js",
+    "scripts": {
+        "build": "webpack --mode=production",
+        "dev": "webpack --mode=development --watch",
+        "start": "wp-env start",
+        "stop": "wp-env stop",
+        "destroy": "wp-env destroy",
+        "clean": "wp-env clean",
+        "test": "wp-env run tests phpunit",
+        "phpcs": "wp-env run tests composer phpcs",
+        "phpcbf": "wp-env run tests composer phpcbf",
+        "lint": "wp-env run tests composer phpcs",
+        "lint:fix": "wp-env run tests composer phpcbf"
+    },
+    "keywords": [
+        "wordpress",
+        "gutenberg",
+        "import",
+        "medium",
+        "notion",
+        "content",
+        "migration"
+    ],
+    "author": "Automattic",
+    "license": "GPL-2.0-or-later",
+    "devDependencies": {
+        "@wordpress/env": "^8.0.0",
+        "@wordpress/scripts": "^26.0.0",
+        "webpack": "^5.88.0",
+        "webpack-cli": "^5.1.0"
+    },
+    "dependencies": {
+        "@wordpress/api-fetch": "^6.0.0",
+        "@wordpress/components": "^25.0.0",
+        "@wordpress/element": "^5.0.0",
+        "@wordpress/i18n": "^4.0.0"
+    }
+}
+

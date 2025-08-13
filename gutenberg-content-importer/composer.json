@@ -38,8 +38,9 @@
     },
     "scripts": {
         "test": "phpunit",
-        "phpcs": "phpcs --standard=WordPress .",
-        "phpcbf": "phpcbf --standard=WordPress ."
+        "test:coverage": "phpunit --coverage-html coverage",
+        "phpcs": "phpcs --standard=phpcs.xml .",
+        "phpcbf": "phpcbf --standard=phpcs.xml ."
     },
     "config": {
         "allow-plugins": {

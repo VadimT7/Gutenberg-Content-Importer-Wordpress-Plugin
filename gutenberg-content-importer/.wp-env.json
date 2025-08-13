@@ -1,0 +1,10 @@
+{
+    "plugins": [
+      "C:/Users/v_tuchila/source/repos/gutenberg-content-importer/gutenberg-content-importer"
+    ],
+    "core": "WordPress/WordPress",
+    "config": {
+      "WP_DEBUG": true,
+      "WP_ENVIRONMENT_TYPE": "development"
+    }
+  }  

@@ -43,4 +43,7 @@ register_activation_hook(__FILE__, function() {
 // Deactivation hook
 register_deactivation_hook(__FILE__, function() {
     GCI\Core\Deactivator::deactivate();
-}); 
+});
+
+// Register background import action
+add_action('gci_process_import_background', ['GCI\Core\Plugin', 'process_import_background'], 10, 4); 

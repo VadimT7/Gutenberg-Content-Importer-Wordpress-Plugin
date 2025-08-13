@@ -378,4 +378,199 @@
 .gci-disconnect-link:hover {
     color: #d63638;
     text-decoration: underline;
+}
+
+/* Progress Tracking Styles */
+.gci-progress-area {
+    margin: 20px 0;
+}
+
+.gci-import-progress {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 30px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.gci-progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.gci-progress-header h3 {
+    margin: 0;
+    font-size: 20px;
+    color: #1e1e1e;
+}
+
+.gci-cancel-import {
+    background: #dc3545;
+    color: #fff;
+    border-color: #dc3545;
+}
+
+.gci-cancel-import:hover {
+    background: #c82333;
+    border-color: #bd2130;
+}
+
+.gci-progress-bar-container {
+    width: 100%;
+    height: 30px;
+    background: #f0f0f0;
+    border-radius: 15px;
+    overflow: hidden;
+    margin-bottom: 15px;
+    position: relative;
+}
+
+.gci-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #007cba, #005a87);
+    border-radius: 15px;
+    transition: width 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.gci-progress-bar::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+    background: linear-gradient(
+        45deg,
+        rgba(255, 255, 255, 0.2) 25%,
+        transparent 25%,
+        transparent 50%,
+        rgba(255, 255, 255, 0.2) 50%,
+        rgba(255, 255, 255, 0.2) 75%,
+        transparent 75%,
+        transparent
+    );
+    background-size: 30px 30px;
+    animation: gci-progress-stripes 1s linear infinite;
+}
+
+@keyframes gci-progress-stripes {
+    0% {
+        background-position: 0 0;
+    }
+    100% {
+        background-position: 30px 0;
+    }
+}
+
+.gci-progress-status {
+    font-size: 16px;
+    font-weight: 500;
+    color: #666;
+    margin-bottom: 10px;
+}
+
+.gci-progress-details {
+    font-size: 14px;
+    color: #999;
+}
+
+/* Progress States */
+.gci-import-progress.state-fetching .gci-progress-bar {
+    background: linear-gradient(90deg, #17a2b8, #138496);
+}
+
+.gci-import-progress.state-parsing .gci-progress-bar {
+    background: linear-gradient(90deg, #ffc107, #e0a800);
+}
+
+.gci-import-progress.state-converting .gci-progress-bar {
+    background: linear-gradient(90deg, #6f42c1, #5a32a3);
+}
+
+.gci-import-progress.state-downloading_images .gci-progress-bar {
+    background: linear-gradient(90deg, #20c997, #17a97a);
+}
+
+.gci-import-progress.state-creating_post .gci-progress-bar {
+    background: linear-gradient(90deg, #28a745, #218838);
+}
+
+.gci-import-progress.state-completed .gci-progress-bar {
+    background: linear-gradient(90deg, #28a745, #218838);
+}
+
+.gci-import-progress.state-completed .gci-progress-bar::before {
+    display: none;
+}
+
+/* Failed and Cancelled States */
+.gci-import-progress.import-failed {
+    border-color: #dc3545;
+}
+
+.gci-import-progress.import-failed .gci-progress-bar {
+    background: #dc3545;
+}
+
+.gci-import-progress.import-failed .gci-progress-status {
+    color: #dc3545;
+}
+
+.gci-import-progress.import-cancelled {
+    border-color: #6c757d;
+}
+
+.gci-import-progress.import-cancelled .gci-progress-bar {
+    background: #6c757d;
+}
+
+.gci-import-progress.import-cancelled .gci-progress-status {
+    color: #6c757d;
+}
+
+/* Active Imports Indicator */
+.gci-active-imports {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: #fff;
+    border: 1px solid #007cba;
+    border-radius: 8px;
+    padding: 15px 20px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    min-width: 200px;
+    z-index: 1000;
+}
+
+.gci-active-imports h4 {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    color: #007cba;
+}
+
+.gci-active-import-item {
+    font-size: 13px;
+    color: #666;
+    margin: 5px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.gci-active-import-item .gci-mini-progress {
+    width: 50px;
+    height: 4px;
+    background: #e0e0e0;
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.gci-active-import-item .gci-mini-progress-bar {
+    height: 100%;
+    background: #007cba;
+    transition: width 0.3s ease;
 } 
